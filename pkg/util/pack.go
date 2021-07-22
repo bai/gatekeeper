@@ -1,9 +1,11 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -11,17 +13,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+// ErrInvalidPackedName indicates that the packed name of the request to be
+// unpacked was invalid.
+var ErrInvalidPackedName = errors.New("invalid packed name, want request.Name to match 'gvk:[Kind].[Version].[Group]:[Name]'")
+
 // UnpackRequest unpacks the GVK from a reconcile.Request and returns the separated components.
 // GVK is encoded as "Kind.Version.Group".
-// Requests are expected to be in the format: {Name: "gvk:EncodedGVK:Name", Namespace: Namespace}
+// Requests are expected to be in the format: {Name: "gvk:EncodedGVK:Name", Namespace: Namespace}.
 func UnpackRequest(r reconcile.Request) (schema.GroupVersionKind, reconcile.Request, error) {
 	fields := strings.SplitN(r.Name, ":", 3)
 	if len(fields) != 3 || fields[0] != "gvk" {
-		return schema.GroupVersionKind{}, reconcile.Request{}, fmt.Errorf("invalid packed name: %s", r.Name)
+		return schema.GroupVersionKind{}, reconcile.Request{},
+			fmt.Errorf("%w: %q", ErrInvalidPackedName, r.Name)
 	}
 	gvk, _ := schema.ParseKindArg(fields[1])
 	if gvk == nil {
-		return schema.GroupVersionKind{}, reconcile.Request{}, fmt.Errorf("unable to parse gvk: %s", fields[1])
+		return schema.GroupVersionKind{}, reconcile.Request{},
+			fmt.Errorf("%w: unable to parse [Kind].[Version].[Group]: %q", ErrInvalidPackedName, fields[1])
 	}
 
 	return *gvk, reconcile.Request{NamespacedName: types.NamespacedName{
@@ -49,7 +57,21 @@ func EventPackerMapFunc() handler.MapFunc {
 				NamespacedName: types.NamespacedName{
 					Namespace: obj.GetNamespace(),
 					Name:      packed,
-				}},
+				},
+			},
 		}
+	}
+}
+
+// EventPackerMapFuncHardcodeGVK accounts for the fact that typed K8s objects have
+// no GVK associated with them by allowing the caller to set the expected GVK.
+func EventPackerMapFuncHardcodeGVK(gvk schema.GroupVersionKind) handler.MapFunc {
+	mf := EventPackerMapFunc()
+	return func(obj client.Object) []reconcile.Request {
+		u := &unstructured.Unstructured{}
+		u.SetGroupVersionKind(gvk)
+		u.SetNamespace(obj.GetNamespace())
+		u.SetName(obj.GetName())
+		return mf(u)
 	}
 }

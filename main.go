@@ -76,7 +76,7 @@ const (
 )
 
 var (
-	// DNSName is <service name>.<namespace>.svc
+	// DNSName is <service name>.<namespace>.svc.
 	dnsName          = fmt.Sprintf("%s.%s.svc", serviceName, util.GetNamespace())
 	scheme           = runtime.NewScheme()
 	setupLog         = ctrl.Log.WithName("setup")
@@ -99,6 +99,7 @@ var (
 	disableCertRotation = flag.Bool("disable-cert-rotation", false, "disable automatic generation and rotation of webhook TLS certificates/keys")
 	enableProfile       = flag.Bool("enable-pprof", false, "enable pprof profiling")
 	profilePort         = flag.Int("pprof-port", 6060, "port for pprof profiling. defaulted to 6060 if unspecified")
+	disabledBuiltins    = util.NewFlagSet()
 )
 
 func init() {
@@ -110,6 +111,7 @@ func init() {
 	_ = statusv1beta1.AddToScheme(scheme)
 	_ = mutationsv1alpha1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
+	flag.Var(disabledBuiltins, "disable-opa-builtin", "disable opa built-in function, this flag can be declared more than once.")
 }
 
 func main() {
@@ -236,7 +238,7 @@ func setupControllers(mgr ctrl.Manager, sw *watch.ControllerSwitch, tracker *rea
 	<-setupFinished
 
 	// initialize OPA
-	driver := local.New(local.Tracing(false))
+	driver := local.New(local.Tracing(false), local.DisableBuiltins(disabledBuiltins.ToSlice()...))
 	backend, err := opa.NewBackend(opa.Driver(driver))
 	if err != nil {
 		setupLog.Error(err, "unable to set up OPA backend")
@@ -323,8 +325,8 @@ func setLoggerForProduction(encoder zapcore.LevelEncoder) {
 	opts = append(opts, zap.AddStacktrace(zap.ErrorLevel),
 		zap.WrapCore(func(core zapcore.Core) zapcore.Core {
 			return zapcore.NewSamplerWithOptions(core, time.Second, 100, 100)
-		}))
-	opts = append(opts, zap.AddCallerSkip(1), zap.ErrorOutput(sink))
+		}),
+		zap.AddCallerSkip(1), zap.ErrorOutput(sink))
 	zlog := zap.New(zapcore.NewCore(&crzap.KubeAwareEncoder{Encoder: enc, Verbose: false}, sink, lvl))
 	zlog = zlog.WithOptions(opts...)
 	newlogger := zapr.NewLogger(zlog)

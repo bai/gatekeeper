@@ -16,7 +16,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,7 +44,12 @@ type Names struct {
 }
 
 type Validation struct {
-	OpenAPIV3Schema *apiextensionsv1beta1.JSONSchemaProps `json:"openAPIV3Schema,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:pruning:PreserveUnknownFields
+	OpenAPIV3Schema *apiextensionsv1.JSONSchemaProps `json:"openAPIV3Schema,omitempty"`
+	// +kubebuilder:default=true
+	LegacySchema bool `json:"legacySchema,omitempty"`
 }
 
 type Target struct {
@@ -62,6 +67,7 @@ type CreateCRDError struct {
 
 // ByPodStatus defines the observed state of ConstraintTemplate as seen by
 // an individual controller
+// +kubebuilder:pruning:PreserveUnknownFields
 type ByPodStatus struct {
 	// a unique identifier for the pod that wrote the status
 	ID                 string           `json:"id,omitempty"`
@@ -80,9 +86,12 @@ type ConstraintTemplateStatus struct {
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:subresource:status
 
 // ConstraintTemplate is the Schema for the constrainttemplates API
 // +k8s:openapi-gen=true
+// +k8s:conversion-gen-external-types=github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates
 type ConstraintTemplate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

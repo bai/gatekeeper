@@ -37,7 +37,9 @@ const (
 var log = logf.Log.WithName("webhook")
 
 var (
+	// VwhName is the metadata.name of the Gatekeeper ValidatingWebhookConfiguration.
 	VwhName = "gatekeeper-validating-webhook-configuration"
+	// MwhName is the metadata.name of the Gatekeeper MutatingWebhookConfiguration.
 	MwhName = "gatekeeper-mutating-webhook-configuration"
 )
 
@@ -55,7 +57,7 @@ var (
 	logDenies                          = flag.Bool("log-denies", false, "log detailed info on each deny")
 	emitAdmissionEvents                = flag.Bool("emit-admission-events", false, "(alpha) emit Kubernetes events in gatekeeper namespace for each admission violation")
 	serviceaccount                     = fmt.Sprintf("system:serviceaccount:%s:%s", util.GetNamespace(), serviceAccountName)
-	// webhookName is deprecated, set this on the manifest YAML if needed"
+	// webhookName is deprecated, set this on the manifest YAML if needed".
 )
 
 func init() {
@@ -90,8 +92,8 @@ func (h *webhookHandler) getConfig(ctx context.Context) (*v1alpha1.Config, error
 	return cfg, h.client.Get(ctx, keys.Config, cfg)
 }
 
-// isGatekeeperResource returns true if the request relates to a gatekeeper resource
-func (h *webhookHandler) isGatekeeperResource(ctx context.Context, req admission.Request) bool {
+// isGatekeeperResource returns true if the request relates to a gatekeeper resource.
+func (h *webhookHandler) isGatekeeperResource(ctx context.Context, req *admission.Request) bool {
 	if req.AdmissionRequest.Kind.Group == "templates.gatekeeper.sh" ||
 		req.AdmissionRequest.Kind.Group == "constraints.gatekeeper.sh" ||
 		req.AdmissionRequest.Kind.Group == mutationsGroup ||
@@ -103,7 +105,7 @@ func (h *webhookHandler) isGatekeeperResource(ctx context.Context, req admission
 	return false
 }
 
-func (h *webhookHandler) tracingLevel(ctx context.Context, req admission.Request) (bool, bool) {
+func (h *webhookHandler) tracingLevel(ctx context.Context, req *admission.Request) (bool, bool) {
 	cfg, _ := h.getConfig(ctx)
 	traceEnabled := false
 	dump := false
@@ -126,7 +128,7 @@ func (h *webhookHandler) tracingLevel(ctx context.Context, req admission.Request
 	return traceEnabled, dump
 }
 
-func (h *webhookHandler) skipExcludedNamespace(req admissionv1.AdmissionRequest, excludedProcess process.Process) (bool, error) {
+func (h *webhookHandler) skipExcludedNamespace(req *admissionv1.AdmissionRequest, excludedProcess process.Process) (bool, error) {
 	obj := &unstructured.Unstructured{}
 	if _, _, err := deserializer.Decode(req.Object.Raw, nil, obj); err != nil {
 		return false, err

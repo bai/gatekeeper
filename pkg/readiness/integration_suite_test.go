@@ -26,7 +26,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/open-policy-agent/gatekeeper/apis"
 	v1 "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -52,9 +51,6 @@ func TestMain(m *testing.M) {
 	if err := apis.AddToScheme(scheme.Scheme); err != nil {
 		stdlog.Fatal(err)
 	}
-	if err := apiextensionsv1beta1.AddToScheme(scheme.Scheme); err != nil {
-		stdlog.Fatal(err)
-	}
 
 	if cfg, err = t.Start(); err != nil {
 		stdlog.Fatal(err)
@@ -68,7 +64,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// StartTestManager adds recFn
+// StartTestManager adds recFn.
 func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.GomegaWithT) *sync.WaitGroup {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -79,7 +75,7 @@ func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.Gomega
 	return wg
 }
 
-// Bootstrap the gatekeeper-system namespace for use in tests
+// Bootstrap the gatekeeper-system namespace for use in tests.
 func createGatekeeperNamespace(cfg *rest.Config) error {
 	c, err := client.New(cfg, client.Options{})
 	if err != nil {

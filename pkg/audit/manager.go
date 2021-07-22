@@ -18,7 +18,7 @@ import (
 	"github.com/open-policy-agent/gatekeeper/pkg/util"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -56,7 +56,7 @@ var (
 	emptyAuditResults         []auditResult
 )
 
-// Manager allows us to audit resources periodically
+// Manager allows us to audit resources periodically.
 type Manager struct {
 	client          client.Client
 	opa             *opa.Client
@@ -85,7 +85,7 @@ type auditResult struct {
 	constraint        *unstructured.Unstructured
 }
 
-// StatusViolation represents each violation under status
+// StatusViolation represents each violation under status.
 type StatusViolation struct {
 	Kind              string `json:"kind"`
 	Name              string `json:"name"`
@@ -94,7 +94,7 @@ type StatusViolation struct {
 	EnforcementAction string `json:"enforcementAction"`
 }
 
-// nsCache is used for caching namespaces and their labels
+// nsCache is used for caching namespaces and their labels.
 type nsCache struct {
 	cache map[string]corev1.Namespace
 }
@@ -116,7 +116,7 @@ func (c *nsCache) Get(ctx context.Context, client client.Client, namespace strin
 	return c.cache[namespace], nil
 }
 
-// New creates a new manager for audit
+// New creates a new manager for audit.
 func New(ctx context.Context, mgr manager.Manager, opa *opa.Client, processExcluder *process.Excluder) (*Manager, error) {
 	reporter, err := newStatsReporter()
 	if err != nil {
@@ -144,7 +144,7 @@ func New(ctx context.Context, mgr manager.Manager, opa *opa.Client, processExclu
 	return am, nil
 }
 
-// audit performs an audit then updates the status of all constraint resources with the results
+// audit performs an audit then updates the status of all constraint resources with the results.
 func (am *Manager) audit(ctx context.Context) error {
 	startTime := time.Now()
 	timestamp := startTime.UTC().Format(time.RFC3339)
@@ -233,7 +233,7 @@ func (am *Manager) audit(ctx context.Context) error {
 	return nil
 }
 
-// Audits server resources via the discovery client, as an alternative to opa.Client.Audit()
+// Audits server resources via the discovery client, as an alternative to opa.Client.Audit().
 func (am *Manager) auditResources(
 	ctx context.Context,
 	constraintsGVK []schema.GroupVersionKind,
@@ -270,10 +270,10 @@ func (am *Manager) auditResources(
 		if _, ok := clusterAPIResources[gv]; !ok {
 			clusterAPIResources[gv] = make(map[string]bool)
 		}
-		for _, resource := range rl.APIResources {
-			for _, verb := range resource.Verbs {
+		for i := range rl.APIResources {
+			for _, verb := range rl.APIResources[i].Verbs {
 				if verb == "list" {
-					clusterAPIResources[gv][resource.Kind] = true
+					clusterAPIResources[gv][rl.APIResources[i].Kind] = true
 					break
 				}
 			}
@@ -429,7 +429,7 @@ func (am *Manager) auditManagerLoop(ctx context.Context) {
 	}
 }
 
-// Start implements controller.Controller
+// Start implements controller.Controller.
 func (am *Manager) Start(ctx context.Context) error {
 	log.Info("Starting Audit Manager")
 	go am.auditManagerLoop(ctx)
@@ -439,7 +439,7 @@ func (am *Manager) Start(ctx context.Context) error {
 }
 
 func (am *Manager) ensureCRDExists(ctx context.Context) error {
-	crd := &apiextensionsv1beta1.CustomResourceDefinition{}
+	crd := &apiextensionsv1.CustomResourceDefinition{}
 	return am.client.Get(ctx, types.NamespacedName{Name: crdName}, crd)
 }
 
@@ -457,8 +457,8 @@ func (am *Manager) getAllConstraintKinds() ([]schema.GroupVersionKind, error) {
 	version := resourceGV[1]
 	// We have seen duplicate GVK entries on shifting to status client, remove them
 	unique := make(map[schema.GroupVersionKind]bool)
-	for _, i := range l.APIResources {
-		unique[schema.GroupVersionKind{Group: group, Version: version, Kind: i.Kind}] = true
+	for i := range l.APIResources {
+		unique[schema.GroupVersionKind{Group: group, Version: version, Kind: l.APIResources[i].Kind}] = true
 	}
 	var ret []schema.GroupVersionKind
 	for gvk := range unique {
@@ -557,7 +557,8 @@ func (ucloop *updateConstraintLoop) updateConstraintStatus(ctx context.Context, 
 	ucloop.log.Info("updating constraint status", "constraintName", constraintName)
 	// create constraint status violations
 	var statusViolations []interface{}
-	for _, ar := range auditResults {
+	for i := range auditResults {
+		ar := &auditResults[i] // avoid large shallow copy in range loop
 		// append statusViolations for this constraint until constraintViolationsLimit has reached
 		if uint(len(statusViolations)) < *constraintViolationsLimit {
 			msg := ar.message

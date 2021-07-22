@@ -11,17 +11,17 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-var (
-	outputDir = flag.String("output-dir", "manifest_staging/charts/gatekeeper", "The root directory in which to write the Helm chart")
-)
+var outputDir = flag.String("output-dir", "manifest_staging/charts/gatekeeper", "The root directory in which to write the Helm chart")
 
 var kindRegex = regexp.MustCompile(`(?m)^kind:[\s]+([\S]+)[\s]*$`)
 
-// use exactly two spaces to be sure we are capturing metadata.name
+// use exactly two spaces to be sure we are capturing metadata.name.
 var nameRegex = regexp.MustCompile(`(?m)^  name:[\s]+([\S]+)[\s]*$`)
+
+const DeploymentKind = "Deployment"
 
 func extractKind(s string) (string, error) {
 	matches := kindRegex.FindStringSubmatch(s)
@@ -40,7 +40,7 @@ func extractName(s string) (string, error) {
 }
 
 func extractCRDKind(obj string) (string, error) {
-	crd := &apiextensionsv1beta1.CustomResourceDefinition{}
+	crd := &apiextensionsv1.CustomResourceDefinition{}
 	if err := yaml.Unmarshal([]byte(obj), crd); err != nil {
 		return "", err
 	}
@@ -101,7 +101,19 @@ func (ks *kindSet) Write() error {
 				obj = "{{- if .Values.experimentalEnableMutation }}\n" + obj + "{{- end }}\n"
 			}
 
-			if kind == "Deployment" {
+			if name == "gatekeeper-critical-pods" && kind == "ResourceQuota" {
+				obj = "{{- if .Values.resourceQuota }}\n" + obj + "{{- end }}\n"
+			}
+
+			if name == "gatekeeper-controller-manager" && kind == DeploymentKind {
+				obj = strings.Replace(obj, "      priorityClassName: system-cluster-critical", "      {{- if .Values.controllerManager.priorityClassName }} \n      priorityClassName:  {{ .Values.controllerManager.priorityClassName }}\n      {{- end }}", 1)
+			}
+
+			if name == "gatekeeper-audit" && kind == DeploymentKind {
+				obj = strings.Replace(obj, "      priorityClassName: system-cluster-critical", "      {{- if .Values.audit.priorityClassName }} \n      priorityClassName:  {{ .Values.audit.priorityClassName }}\n      {{- end }}", 1)
+			}
+
+			if kind == DeploymentKind {
 				obj = strings.Replace(obj, "      labels:", "      labels:\n{{- include \"gatekeeper.podLabels\" . }}", 1)
 			}
 

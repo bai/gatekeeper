@@ -7,13 +7,8 @@ title: Installation
 
 ### Minimum Kubernetes Version
 
-**To use Gatekeeper, you should have a minimum Kubernetes version of 1.14, which adds
-webhook timeouts.**
-
-You can install Gatekeeper in earlier versions of Kubernetes either by
-removing incompatible fields from the manifest or by setting `--validate=false`
-when applying the manifest. Be warned that, without timeouts on the webhook, your
-API Server could timeout when Gatekeeper is down. Kubernetes 1.14 fixes this issue.
+**To use Gatekeeper, you should have a minimum Kubernetes version of 1.16, which adds
+v1 CRDs.**
 
 ### RBAC Permissions
 
@@ -32,12 +27,12 @@ For either installation method, make sure you have cluster admin permissions:
 If you want to deploy a released version of Gatekeeper in your cluster with a prebuilt image, then you can run the following command:
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/open-policy-agent/gatekeeper/release-3.3/deploy/gatekeeper.yaml
+kubectl apply -f https://raw.githubusercontent.com/open-policy-agent/gatekeeper/release-3.5/deploy/gatekeeper.yaml
 ```
 
 ### Deploying a Release using development image
 
-If you want to deploy latest development version of Gatekeeper, you can use `openpolicyagent/gatekeeper:dev` tag or `openpolicyagent/gateekeper:<SHA>`.
+If you want to deploy latest development version of Gatekeeper, you can use `openpolicyagent/gatekeeper:dev` tag or `openpolicyagent/gatekeeper:<SHA>`.
 
 Images are hosted in [OPA Docker Hub repository](https://hub.docker.com/r/openpolicyagent/gatekeeper/tags).
 
@@ -95,7 +90,7 @@ You can alter the variables in `charts/gatekeeper/values.yaml` to customize your
 If you used a prebuilt image to deploy Gatekeeper, then you can delete all the Gatekeeper components with the following command:
 
   ```sh
-  kubectl delete -f https://raw.githubusercontent.com/open-policy-agent/gatekeeper/release-3.3/deploy/gatekeeper.yaml
+  kubectl delete -f https://raw.githubusercontent.com/open-policy-agent/gatekeeper/release-3.5/deploy/gatekeeper.yaml
   ```
 
 ### Using make

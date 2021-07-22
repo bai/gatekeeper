@@ -47,10 +47,10 @@ func init() {
 	}
 }
 
-// TODO enable this once mutation is beta +kubebuilder:webhook:verbs=create;update,path=/v1/mutate,mutating=true,failurePolicy=ignore,groups=*,resources=*,versions=*,name=mutation.gatekeeper.sh
+// TODO enable this once mutation is beta +kubebuilder:webhook:verbs=create;update,path=/v1/mutate,mutating=true,failurePolicy=ignore,groups=*,resources=*,versions=*,name=mutation.gatekeeper.sh,sideEffects=None,admissionReviewVersions=v1;v1beta1,matchPolicy=Exact
 // TODO enable this once mutation is beta +kubebuilder:rbac:groups=*,resources=*,verbs=get;list;watch;update
 
-// AddMutatingWebhook registers the mutating webhook server with the manager
+// AddMutatingWebhook registers the mutating webhook server with the manager.
 func AddMutatingWebhook(mgr manager.Manager, client *opa.Client, processExcluder *process.Excluder, mutationSystem *mutation.System) error {
 	if !*mutation.MutationEnabled {
 		return nil
@@ -101,9 +101,10 @@ type mutationHandler struct {
 }
 
 // Handle the mutation request
+// nolint: gocritic // Must accept admission.Request to satisfy interface.
 func (h *mutationHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	log := log.WithValues("hookType", "mutation")
-	var timeStart = time.Now()
+	timeStart := time.Now()
 
 	if isGkServiceAccount(req.AdmissionRequest.UserInfo) {
 		return admission.ValidationResponse(true, "Gatekeeper does not self-manage")
@@ -114,7 +115,7 @@ func (h *mutationHandler) Handle(ctx context.Context, req admission.Request) adm
 		return admission.ValidationResponse(true, "Mutating only on create or update")
 	}
 
-	if h.isGatekeeperResource(ctx, req) {
+	if h.isGatekeeperResource(ctx, &req) {
 		return admission.ValidationResponse(true, "Not mutating gatekeeper resources")
 	}
 
@@ -128,7 +129,7 @@ func (h *mutationHandler) Handle(ctx context.Context, req admission.Request) adm
 	}()
 
 	// namespace is excluded from webhook using config
-	isExcludedNamespace, err := h.skipExcludedNamespace(req.AdmissionRequest, process.Mutation)
+	isExcludedNamespace, err := h.skipExcludedNamespace(&req.AdmissionRequest, process.Mutation)
 	if err != nil {
 		log.Error(err, "error while excluding namespace")
 	}
@@ -138,8 +139,7 @@ func (h *mutationHandler) Handle(ctx context.Context, req admission.Request) adm
 		return admission.ValidationResponse(true, "Namespace is set to be ignored by Gatekeeper config")
 	}
 
-	resp, err := h.mutateRequest(ctx, req)
-
+	resp, err := h.mutateRequest(ctx, &req)
 	if err != nil {
 		requestResponse = errorResponse
 		return admission.Errored(int32(http.StatusInternalServerError), err)
@@ -148,12 +148,12 @@ func (h *mutationHandler) Handle(ctx context.Context, req admission.Request) adm
 	return resp
 }
 
-func (h *mutationHandler) mutateRequest(ctx context.Context, req admission.Request) (admission.Response, error) {
-
+func (h *mutationHandler) mutateRequest(ctx context.Context, req *admission.Request) (admission.Response, error) {
 	ns := &corev1.Namespace{}
 
 	// if the object being mutated is a namespace itself, we use it as namespace
-	if req.Kind.Kind == namespaceKind && req.Kind.Group == "" {
+	switch {
+	case req.Kind.Kind == namespaceKind && req.Kind.Group == "":
 		req.Namespace = ""
 		obj, _, err := deserializer.Decode(req.Object.Raw, nil, &corev1.Namespace{})
 		if err != nil {
@@ -164,7 +164,7 @@ func (h *mutationHandler) mutateRequest(ctx context.Context, req admission.Reque
 		if !ok {
 			return admission.Errored(int32(http.StatusInternalServerError), errors.New("failed to cast namespace object")), nil
 		}
-	} else if req.AdmissionRequest.Namespace != "" {
+	case req.AdmissionRequest.Namespace != "":
 		if err := h.client.Get(ctx, types.NamespacedName{Name: req.AdmissionRequest.Namespace}, ns); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				log.Error(err, "error retrieving namespace", "name", req.AdmissionRequest.Namespace)
@@ -177,7 +177,7 @@ func (h *mutationHandler) mutateRequest(ctx context.Context, req admission.Reque
 				return admission.Errored(int32(http.StatusInternalServerError), err), nil
 			}
 		}
-	} else {
+	default:
 		ns = nil
 	}
 	obj := unstructured.Unstructured{}

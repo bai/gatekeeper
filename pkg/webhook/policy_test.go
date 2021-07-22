@@ -200,7 +200,7 @@ func TestTemplateValidation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error parsing yaml: %s", err)
 			}
-			review := atypes.Request{
+			review := &atypes.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
 					Kind: metav1.GroupVersionKind{
 						Group:   "templates.gatekeeper.sh",
@@ -294,7 +294,7 @@ func TestReviewRequest(t *testing.T) {
 			if maxThreads > 0 {
 				handler.semaphore = make(chan struct{}, maxThreads)
 			}
-			review := atypes.Request{
+			review := &atypes.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
 					Kind: metav1.GroupVersionKind{
 						Group:   "",
@@ -321,7 +321,6 @@ func TestReviewRequest(t *testing.T) {
 		maxThreads = 1
 		t.Run(tt.Name+" with max threads", testFn)
 	}
-
 }
 
 func TestConstraintValidation(t *testing.T) {
@@ -390,7 +389,7 @@ func TestConstraintValidation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error parsing yaml: %s", err)
 			}
-			review := atypes.Request{
+			review := &atypes.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
 					Kind: metav1.GroupVersionKind{
 						Group:   "constraints.gatekeeper.sh",
@@ -510,7 +509,7 @@ func TestTracing(t *testing.T) {
 			if maxThreads > 0 {
 				handler.semaphore = make(chan struct{}, maxThreads)
 			}
-			review := atypes.Request{
+			review := &atypes.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
 					Kind: metav1.GroupVersionKind{
 						Group:   "",
@@ -681,7 +680,7 @@ func TestGetValidationMessages(t *testing.T) {
 			if maxThreads > 0 {
 				handler.semaphore = make(chan struct{}, maxThreads)
 			}
-			review := atypes.Request{
+			review := &atypes.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
 					Kind: metav1.GroupVersionKind{
 						Group:   "",
@@ -728,7 +727,7 @@ func TestValidateConfigResource(t *testing.T) {
 	for _, tt := range tc {
 		t.Run(tt.TestName, func(t *testing.T) {
 			handler := validationHandler{}
-			req := atypes.Request{
+			req := &atypes.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
 					Name: tt.Name,
 				},

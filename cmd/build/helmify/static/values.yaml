@@ -5,6 +5,8 @@ constraintViolationsLimit: 20
 auditFromCache: false
 disableValidatingWebhook: false
 validatingWebhookTimeoutSeconds: 3
+validatingWebhookFailurePolicy: Ignore
+validatingWebhookCheckIgnoreFailurePolicy: Fail
 enableDeleteOperations: false
 experimentalEnableMutation: false
 auditChunkSize: 0
@@ -12,6 +14,7 @@ logLevel: INFO
 logDenies: false
 emitAdmissionEvents: false
 emitAuditEvents: false
+resourceQuota: true
 postInstall:
   labelNamespace:
     enabled: true
@@ -22,14 +25,16 @@ postInstall:
       pullSecrets: []
 image:
   repository: openpolicyagent/gatekeeper
-  release: v3.4.0
+  release: v3.6.0-beta.2
   pullPolicy: IfNotPresent
   pullSecrets: []
 podAnnotations:
   { container.seccomp.security.alpha.kubernetes.io/manager: runtime/default }
 podLabels: {}
+podCountLimit: 100
 secretAnnotations: {}
 controllerManager:
+  exemptNamespaces: []
   hostNetwork: false
   priorityClassName: system-cluster-critical
   affinity:
@@ -70,3 +75,4 @@ pdb:
   controllerManager:
     minAvailable: 1
 service: {}
+disabledBuiltins:

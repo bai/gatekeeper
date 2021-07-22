@@ -28,14 +28,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const (
-	ConstraintNameLabel = "internal.gatekeeper.sh/constraint-name"
-	ConstraintKindLabel = "internal.gatekeeper.sh/constraint-kind"
-	PodLabel            = "internal.gatekeeper.sh/pod"
-	ConstraintsGroup    = "constraints.gatekeeper.sh"
-)
+// ConstraintsGroup is the API Group for Gatekeeper Constraints.
+const ConstraintsGroup = "constraints.gatekeeper.sh"
 
-// ConstraintPodStatusStatus defines the observed state of ConstraintPodStatus
+// ConstraintPodStatusStatus defines the observed state of ConstraintPodStatus.
 type ConstraintPodStatusStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
@@ -50,7 +46,7 @@ type ConstraintPodStatusStatus struct {
 	ObservedGeneration int64     `json:"observedGeneration,omitempty"`
 }
 
-// Error represents a single error caught while adding a constraint to OPA
+// Error represents a single error caught while adding a constraint to OPA.
 type Error struct {
 	Code     string `json:"code"`
 	Message  string `json:"message"`
@@ -60,7 +56,7 @@ type Error struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Namespaced
 
-// ConstraintPodStatus is the Schema for the constraintpodstatuses API
+// ConstraintPodStatus is the Schema for the constraintpodstatuses API.
 type ConstraintPodStatus struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -70,7 +66,7 @@ type ConstraintPodStatus struct {
 
 // +kubebuilder:object:root=true
 
-// ConstraintPodStatusList contains a list of ConstraintPodStatus
+// ConstraintPodStatusList contains a list of ConstraintPodStatus.
 type ConstraintPodStatusList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -83,7 +79,7 @@ func init() {
 
 // NewConstraintStatusForPod returns a constraint status object
 // that has been initialized with the bare minimum of fields to make it functional
-// with the constraint status controller
+// with the constraint status controller.
 func NewConstraintStatusForPod(pod *corev1.Pod, constraint *unstructured.Unstructured, scheme *runtime.Scheme) (*ConstraintPodStatus, error) {
 	obj := &ConstraintPodStatus{}
 	name, err := KeyForConstraint(pod.Name, constraint)
@@ -110,7 +106,7 @@ func NewConstraintStatusForPod(pod *corev1.Pod, constraint *unstructured.Unstruc
 }
 
 // KeyForConstraint returns a unique status object name given the Pod ID and
-// a constraint object
+// a constraint object.
 func KeyForConstraint(id string, constraint *unstructured.Unstructured) (string, error) {
 	// We don't need to worry that lower-casing the kind will cause a collision because
 	// the constraint framework requires resource == lower-case kind. We must do this

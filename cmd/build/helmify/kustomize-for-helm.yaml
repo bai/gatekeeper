@@ -6,41 +6,43 @@ metadata:
 spec:
   HELMSUBST_SERVICE_TYPE: ""
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: configs.config.gatekeeper.sh
 status: null
-spec:
-  names:
-    shortNames:
-      - config # add shortName to CRD until https://github.com/kubernetes-sigs/kubebuilder/issues/404 is solved
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: constrainttemplates.templates.gatekeeper.sh
 status: null
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: constrainttemplatepodstatuses.status.gatekeeper.sh
 status: null
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: constraintpodstatuses.status.gatekeeper.sh
 status: null
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: mutatorpodstatuses.status.gatekeeper.sh
+status: null
+---
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: assignmetadata.mutations.gatekeeper.sh
 status: null
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: assign.mutations.gatekeeper.sh
@@ -69,6 +71,8 @@ spec:
             - --exempt-namespace={{ .Release.Namespace }}
             - --operation=webhook
             - --enable-mutation={{ .Values.experimentalEnableMutation}}
+            - HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_DISABLED_BUILTIN
+            - HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_EXEMPT_NAMESPACES
           imagePullPolicy: "{{ .Values.image.pullPolicy }}"
           image: "{{ .Values.image.repository }}:{{ .Values.image.release }}"
           resources:
@@ -128,7 +132,7 @@ metadata:
   name: gatekeeper-webhook-server-cert
   namespace: gatekeeper-system
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   labels:
@@ -142,6 +146,7 @@ webhooks:
       path: /v1/admit
   name: validation.gatekeeper.sh
   timeoutSeconds: HELMSUBST_VALIDATING_WEBHOOK_TIMEOUT
+  failurePolicy: HELMSUBST_VALIDATING_WEBHOOK_FAILURE_POLICY
   rules:
   - apiGroups:
     - "*"
@@ -157,6 +162,7 @@ webhooks:
       path: /v1/admitlabel
   name: check-ignore-label.gatekeeper.sh
   timeoutSeconds: HELMSUBST_VALIDATING_WEBHOOK_TIMEOUT
+  failurePolicy: HELMSUBST_VALIDATING_WEBHOOK_CHECK_IGNORE_FAILURE_POLICY
 ---
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
@@ -170,3 +176,19 @@ spec:
       control-plane: controller-manager
       gatekeeper.sh/operation: webhook
       gatekeeper.sh/system: "yes"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: critical-pods
+  namespace: system
+spec:
+  hard:
+    pods: HELMSUBST_RESOURCEQUOTA_POD_LIMIT
+  scopeSelector:
+    matchExpressions:
+    - operator: In
+      scopeName: PriorityClass
+      values:
+      - HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_PRIORITY_CLASS_NAME
+      - HELMSUBST_DEPLOYMENT_AUDIT_PRIORITY_CLASS_NAME

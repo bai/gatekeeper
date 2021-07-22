@@ -88,16 +88,17 @@ package foo
 violation[{"msg": "denied!"}] {
 	1 == 1
 }
-`},
+`,
+				},
 			},
 		},
 	}
 
 	// Uncommenting the below enables logging of K8s internals like watch.
-	//fs := flag.NewFlagSet("", flag.PanicOnError)
-	//klog.InitFlags(fs)
-	//fs.Parse([]string{"--alsologtostderr", "-v=10"})
-	//klog.SetOutput(os.Stderr)
+	// fs := flag.NewFlagSet("", flag.PanicOnError)
+	// klog.InitFlags(fs)
+	// fs.Parse([]string{"--alsologtostderr", "-v=10"})
+	// klog.SetOutput(os.Stderr)
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
@@ -113,7 +114,6 @@ violation[{"msg": "denied!"}] {
 	backend, err := opa.NewBackend(opa.Driver(driver))
 	if err != nil {
 		t.Fatalf("unable to set up OPA backend: %s", err)
-
 	}
 	opa, err := backend.NewClient(opa.Targets(&target.K8sValidationTarget{}))
 	if err != nil {
@@ -213,7 +213,6 @@ violation[{"msg": "denied!"}] {
 	templateCpy = template.DeepCopy()
 	cstr = newDenyAllCstr()
 	t.Run("Deleting a constraint template deletes all statuses for the current pod", func(t *testing.T) {
-		fmt.Println("ENTERING THE TEST NOW\n\n\n\nd")
 		g.Eventually(verifyTStatusCount(ctx, c, 0), timeout).Should(gomega.BeNil())
 		g.Expect(c.Create(ctx, templateCpy)).NotTo(gomega.HaveOccurred())
 		g.Eventually(verifyTStatusCount(ctx, c, 1), timeout).Should(gomega.BeNil())

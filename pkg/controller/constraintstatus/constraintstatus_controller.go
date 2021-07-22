@@ -41,44 +41,47 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var (
-	log = logf.Log.WithName("controller").WithValues(logging.Process, "constraint_status_controller")
-)
+var log = logf.Log.WithName("controller").WithValues(logging.Process, "constraint_status_controller")
 
 type Adder struct {
 	Opa              *opa.Client
 	WatchManager     *watch.Manager
 	ControllerSwitch *watch.ControllerSwitch
 	Events           <-chan event.GenericEvent
+	AssumeDeleted    func(schema.GroupVersionKind) bool
 }
 
 // Add creates a new Constraint Status Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func (a *Adder) Add(mgr manager.Manager) error {
 	r := newReconciler(mgr, a.ControllerSwitch)
+	if a.AssumeDeleted != nil {
+		r.assumeDeleted = a.AssumeDeleted
+	}
 	return add(mgr, r, a.Events)
 }
 
-// newReconciler returns a new reconcile.Reconciler
+// newReconciler returns a new reconcile.Reconciler.
 func newReconciler(
 	mgr manager.Manager,
-	cs *watch.ControllerSwitch) reconcile.Reconciler {
+	cs *watch.ControllerSwitch) *ReconcileConstraintStatus {
 	return &ReconcileConstraintStatus{
 		// Separate reader and writer because manager's default client bypasses the cache for unstructured resources.
 		writer:       mgr.GetClient(),
 		statusClient: mgr.GetClient(),
 		reader:       mgr.GetCache(),
 
-		cs:     cs,
-		scheme: mgr.GetScheme(),
-		log:    log,
+		cs:            cs,
+		scheme:        mgr.GetScheme(),
+		log:           log,
+		assumeDeleted: func(schema.GroupVersionKind) bool { return false },
 	}
 }
 
 type PackerMap func(obj client.Object) []reconcile.Request
 
 // PodStatusToConstraintMapper correlates a ConstraintPodStatus with its corresponding constraint
-// `selfOnly` tells the mapper to only map statuses corresponding to the current pod
+// `selfOnly` tells the mapper to only map statuses corresponding to the current pod.
 func PodStatusToConstraintMapper(selfOnly bool, packerMap handler.MapFunc) handler.MapFunc {
 	return func(obj client.Object) []reconcile.Request {
 		labels := obj.GetLabels()
@@ -109,7 +112,7 @@ func PodStatusToConstraintMapper(selfOnly bool, packerMap handler.MapFunc) handl
 	}
 }
 
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
+// add adds a new Controller to mgr with r as the reconcile.Reconciler.
 func add(mgr manager.Manager, r reconcile.Reconciler, events <-chan event.GenericEvent) error {
 	// Create a new controller
 	c, err := controller.New("constraint-status-controller", mgr, controller.Options{Reconciler: r})
@@ -138,22 +141,23 @@ func add(mgr manager.Manager, r reconcile.Reconciler, events <-chan event.Generi
 
 var _ reconcile.Reconciler = &ReconcileConstraintStatus{}
 
-// ReconcileConstraintStatus reconciles an arbitrary constraint object described by Kind
+// ReconcileConstraintStatus reconciles an arbitrary constraint object described by Kind.
 type ReconcileConstraintStatus struct {
 	reader       client.Reader
 	writer       client.Writer
 	statusClient client.StatusClient
 
-	cs     *watch.ControllerSwitch
-	scheme *runtime.Scheme
-	log    logr.Logger
+	cs            *watch.ControllerSwitch
+	scheme        *runtime.Scheme
+	log           logr.Logger
+	assumeDeleted func(schema.GroupVersionKind) bool
 }
 
 // +kubebuilder:rbac:groups=constraints.gatekeeper.sh,resources=*,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=status.gatekeeper.sh,resources=*,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a constraint object and makes changes based on the state read
-// and what is in the constraint.Spec
+// and what is in the constraint.Spec.
 func (r *ReconcileConstraintStatus) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	// Short-circuit if shutting down.
 	if r.cs != nil {
@@ -175,6 +179,11 @@ func (r *ReconcileConstraintStatus) Reconcile(ctx context.Context, request recon
 	if gvk.Group != v1beta1.ConstraintsGroup {
 		// Unrecoverable, do not retry.
 		log.Error(err, "invalid constraint GroupVersion", "gvk", gvk)
+		return reconcile.Result{}, nil
+	}
+
+	if r.assumeDeleted(gvk) {
+		// constraint is deleted, nothing to reconcile
 		return reconcile.Result{}, nil
 	}
 
@@ -207,14 +216,14 @@ func (r *ReconcileConstraintStatus) Reconcile(ctx context.Context, request recon
 	sort.Sort(statusObjs)
 
 	var s []interface{}
-	for _, v := range statusObjs {
+	for i := range statusObjs {
 		// Don't report status if it's not for the correct object. This can happen
 		// if a watch gets interrupted, causing the constraint status to be deleted
 		// out from underneath it
-		if v.Status.ConstraintUID != instance.GetUID() {
+		if statusObjs[i].Status.ConstraintUID != instance.GetUID() {
 			continue
 		}
-		j, err := json.Marshal(v.Status)
+		j, err := json.Marshal(statusObjs[i].Status)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

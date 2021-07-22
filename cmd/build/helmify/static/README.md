@@ -76,6 +76,8 @@ _See [Exempting Namespaces](https://open-policy-agent.github.io/gatekeeper/websi
 | auditMatchKindOnly                           | Only check resources of the kinds specified in all constraints defined in the cluster. | `false`                                                                        |
 | disableValidatingWebhook                     | Disable the validating webhook                                                         | `false`                                                                   |
 | validatingWebhookTimeoutSeconds              | The timeout for the validating webhook in seconds                                      | `3`                                                                       |
+| validatingWebhookFailurePolicy               | The failurePolicy for the validating webhook                                           | `Ignore`                                                                       |
+| validatingWebhookCheckIgnoreFailurePolicy    | The failurePolicy for the check-ignore-label validating webhook                        | `Fail`                                                                       |
 | enableDeleteOperations                       | Enable validating webhook for delete operations                                        | `false`                                                                   |
 | experimentalEnableMutation                   | Enable mutation  (alpha feature)                                                       | `false`                                                                   |
 | emitAdmissionEvents                          | Emit K8s events in gatekeeper namespace for admission violations (alpha feature)       | `false`                                                                   |
@@ -84,19 +86,21 @@ _See [Exempting Namespaces](https://open-policy-agent.github.io/gatekeeper/websi
 | logLevel                                     | Minimum log level                                                                      | `INFO`                                                                    |
 | image.pullPolicy                             | The image pull policy                                                                  | `IfNotPresent`                                                            |
 | image.repository                             | Image repository                                                                       | `openpolicyagent/gatekeeper`                                              |
-| image.release                                | The image release tag to use                                                           | Current release version: `v3.4.0`                                         |
+| image.release                                | The image release tag to use                                                           | Current release version: `v3.6.0-beta.2`                                         |
 | image.pullSecrets                            | Specify an array of imagePullSecrets                                                   | `[]`                                                                      |
 | resources                                    | The resource request/limits for the container image                                    | limits: 1 CPU, 512Mi, requests: 100mCPU, 256Mi                            |
 | nodeSelector                                 | The node selector to use for pod scheduling                                            | `kubernetes.io/os: linux`                                                 |
 | affinity                                     | The node affinity to use for pod scheduling                                            | `{}`                                                                      |
 | tolerations                                  | The tolerations to use for pod scheduling                                              | `[]`                                                                      |
 | controllerManager.priorityClassName          | Priority class name for controller manager                                             | `system-cluster-critical`                                                 |
+| controllerManager.exemptNamespaces           | The namespaces to exempt                                                                                   | `[]`                                                 |
 | controllerManager.hostNetwork                | Enables controllerManager to be deployed on hostNetwork                                | `false`                                                                   |
 | audit.priorityClassName                      | Priority class name for audit controller                                               | `system-cluster-critical`                                                 |
 | audit.hostNetwork                            | Enables audit to be deployed on hostNetwork                                            | `false`                                                                   |
 | replicas                                     | The number of Gatekeeper replicas to deploy for the webhook                            | `3`                                                                       |
 | podAnnotations                               | The annotations to add to the Gatekeeper pods                                          | `container.seccomp.security.alpha.kubernetes.io/manager: runtime/default` |
 | podLabels                                    | The labels to add to the Gatekeeper pods                                               | `{}`                                                                      |
+| podCountLimit                                | The maximum number of Gatekeeper pods to run                                           | `100`                                                                     |
 | secretAnnotations                            | The annotations to add to the Gatekeeper secrets                                       | `{}`                                                                      |
 | pdb.controllerManager.minAvailable           | The number of controller manager pods that must still be available after an eviction   | `1`                                                                       |
 | service.type                                 | Service type                                                                           | `ClusterIP`                                                               |
@@ -106,7 +110,7 @@ _See [Exempting Namespaces](https://open-policy-agent.github.io/gatekeeper/websi
 
 This Helm chart is autogenerated from the Gatekeeper static manifest. The
 generator code lives under `cmd/build/helmify`. To make modifications to this
-template, please edit `kustomization.yaml` and `replacements.go` under that
-directory and then run `make manifests`. Your changes will show up in the
-`manifest_staging` directory and will be promoted to the root `charts` directory
-the next time a Gatekeeper release is cut.
+template, please edit `kustomization.yaml`, `kustomize-for-helm.yaml` and
+`replacements.go` under that directory and then run `make manifests`. Your
+changes will show up in the `manifest_staging` directory and will be promoted
+to the root `charts` directory the next time a Gatekeeper release is cut.

@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// Stub out the lister
+// Stub out the lister.
 type dummyLister struct{}
 
 var scheme *runtime.Scheme
@@ -55,8 +55,7 @@ var testConstraintTemplate = templates.ConstraintTemplate{
 }
 
 func (dl dummyLister) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-	switch l := list.(type) {
-	case *v1beta1.ConstraintTemplateList:
+	if l, ok := list.(*v1beta1.ConstraintTemplateList); ok {
 		i := v1beta1.ConstraintTemplate{}
 		if err := scheme.Convert(&testConstraintTemplate, &i, nil); err != nil {
 			// These failures will be swallowed by readiness.retryAll
@@ -67,7 +66,7 @@ func (dl dummyLister) List(ctx context.Context, list client.ObjectList, opts ...
 	return nil
 }
 
-// Verify that TryCancelTemplate functions the same as regular CancelTemplate if readinessRetries is set to 0
+// Verify that TryCancelTemplate functions the same as regular CancelTemplate if readinessRetries is set to 0.
 func Test_ReadyTracker_TryCancelTemplate_No_Retries(t *testing.T) {
 	g := gomega.NewWithT(t)
 
@@ -97,7 +96,7 @@ func Test_ReadyTracker_TryCancelTemplate_No_Retries(t *testing.T) {
 	g.Expect(rt.Satisfied(ctx)).To(gomega.BeTrue(), "tracker with 0 retries and cancellation should be satisfied")
 }
 
-// Verify that TryCancelTemplate must be called enough times to remove all retries before cancelling a template
+// Verify that TryCancelTemplate must be called enough times to remove all retries before canceling a template.
 func Test_ReadyTracker_TryCancelTemplate_Retries(t *testing.T) {
 	g := gomega.NewWithT(t)
 

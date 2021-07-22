@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -48,9 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var (
-	log = logf.Log.WithName("controller").WithValues(logging.Process, "constraint_controller")
-)
+var log = logf.Log.WithName("controller").WithValues(logging.Process, "constraint_controller")
 
 const (
 	finalizerName = "finalizers.gatekeeper.sh/constraint"
@@ -65,6 +64,7 @@ type Adder struct {
 	Tracker          *readiness.Tracker
 	GetPod           func() (*corev1.Pod, error)
 	ProcessExcluder  *process.Excluder
+	AssumeDeleted    func(schema.GroupVersionKind) bool
 }
 
 func (a *Adder) InjectOpa(o *opa.Client) {
@@ -98,6 +98,9 @@ func (a *Adder) Add(mgr manager.Manager) error {
 	if a.GetPod != nil {
 		r.getPod = a.GetPod
 	}
+	if a.AssumeDeleted != nil {
+		r.assumeDeleted = a.AssumeDeleted
+	}
 	return add(mgr, r, a.Events)
 }
 
@@ -111,7 +114,7 @@ type tags struct {
 	status            metrics.Status
 }
 
-// newReconciler returns a new reconcile.Reconciler
+// newReconciler returns a new reconcile.Reconciler.
 func newReconciler(
 	mgr manager.Manager,
 	opa *opa.Client,
@@ -134,10 +137,12 @@ func newReconciler(
 		tracker:          tracker,
 	}
 	r.getPod = r.defaultGetPod
+	// default
+	r.assumeDeleted = func(schema.GroupVersionKind) bool { return false }
 	return r
 }
 
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
+// add adds a new Controller to mgr with r as the reconcile.Reconciler.
 func add(mgr manager.Manager, r reconcile.Reconciler, events <-chan event.GenericEvent) error {
 	// Create a new controller
 	c, err := controller.New("constraint-controller", mgr, controller.Options{Reconciler: r})
@@ -170,7 +175,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, events <-chan event.Generi
 
 var _ reconcile.Reconciler = &ReconcileConstraint{}
 
-// ReconcileConstraint reconciles an arbitrary constraint object described by Kind
+// ReconcileConstraint reconciles an arbitrary constraint object described by Kind.
 type ReconcileConstraint struct {
 	reader       client.Reader
 	writer       client.Writer
@@ -184,12 +189,15 @@ type ReconcileConstraint struct {
 	constraintsCache *ConstraintsCache
 	tracker          *readiness.Tracker
 	getPod           func() (*corev1.Pod, error)
+	// assumeDeleted allows us to short-circuit get requests
+	// that would otherwise trigger a watch
+	assumeDeleted func(schema.GroupVersionKind) bool
 }
 
 // +kubebuilder:rbac:groups=constraints.gatekeeper.sh,resources=*,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reads that state of the cluster for a constraint object and makes changes based on the state read
-// and what is in the constraint.Spec
+// and what is in the constraint.Spec.
 func (r *ReconcileConstraint) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	// Short-circuit if shutting down.
 	if r.cs != nil {
@@ -218,7 +226,11 @@ func (r *ReconcileConstraint) Reconcile(ctx context.Context, request reconcile.R
 	deleted := false
 	instance := &unstructured.Unstructured{}
 	instance.SetGroupVersionKind(gvk)
-	if err := r.reader.Get(ctx, unpackedRequest.NamespacedName, instance); err != nil {
+	if r.assumeDeleted(gvk) {
+		deleted = true
+		instance.SetNamespace(unpackedRequest.NamespacedName.Namespace)
+		instance.SetName(unpackedRequest.NamespacedName.Name)
+	} else if err := r.reader.Get(ctx, unpackedRequest.NamespacedName, instance); err != nil {
 		if !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
 			return reconcile.Result{}, err
 		}
